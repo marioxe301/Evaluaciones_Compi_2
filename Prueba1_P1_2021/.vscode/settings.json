@@ -1,0 +1,4 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/tests",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+}
