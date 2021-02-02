@@ -1,4 +1,0 @@
-/home/marioxe301/Documents/Compiladores_2/Evaluaciones/Prueba2_P1_2021/tests/build/CMakeFiles/rebuild_cache.dir
-/home/marioxe301/Documents/Compiladores_2/Evaluaciones/Prueba2_P1_2021/tests/build/CMakeFiles/edit_cache.dir
-/home/marioxe301/Documents/Compiladores_2/Evaluaciones/Prueba2_P1_2021/tests/build/CMakeFiles/test.dir
-/home/marioxe301/Documents/Compiladores_2/Evaluaciones/Prueba2_P1_2021/tests/build/CMakeFiles/test_parser.dir
