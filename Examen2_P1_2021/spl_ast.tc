@@ -1,0 +1,318 @@
+%option lang = "C++"
+%option namespace = "Ast"
+
+%decls %{
+#include <string>
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+
+namespace Ast{ class Program;
+                class Function;
+                 }
+using list = std::vector<Ast::Program*>;
+using f_list = std::vector<Ast::Function*>;
+using SymbolVector = std::unordered_map<std::string, int>;
+using _string = std::string;
+
+%}
+
+%{
+    #include "spl_ast.h"
+    int temporalIndex = 0;
+    int tempLableIndex = 0;
+
+    _string newTemp(){
+        return "dword[esp +"+std::to_string(temporalIndex++ *4)+"]";
+    }
+    _string newLabel(){
+        return "L"+std::to_string(tempLableIndex++);
+    }
+
+    _string cleanTemporalStack(){
+        std::string temp = "add esp , "+std::to_string(temporalIndex*4);
+        temporalIndex = 0;
+        return temp;
+    }
+
+    _string reserveStackSpace(){
+        return "sub esp , "+std::to_string(temporalIndex*4);
+    }
+%}
+
+
+%node Program %abstract %typedef = {
+    %nocreate _string place;
+    %nocreate _string asm_code;
+}
+
+%node ParamByVal Program = {
+    _string id;
+}
+
+%node ParamByRef Program = {
+    _string id;
+}
+
+%node Prog Program = {
+    f_list func_list;
+}
+%node Function Program = {
+    _string id;
+    list args;
+    Program *block;
+}
+
+%node Call Program = {
+    _string id;
+    list args;
+}
+
+%node BinaryExpr Program %abstract = {
+    Program *expr1;
+    Program *expr2;
+}
+
+
+%node NumExpr Program = {
+    int val;
+}
+
+%node VarExpr Program = {
+    _string id;
+}
+
+%node SeqStmt Program = {
+    list seq;
+}
+
+%node AddExpr BinaryExpr
+%node AndExpr BinaryExpr
+%node OrExpr BinaryExpr
+%node XorExpr BinaryExpr
+%node LessThan BinaryExpr
+
+%node AssignStmt Program = {
+    _string id;
+    Program *expr1;
+}
+
+%node PrintStmt Program = {
+    Program *expr1;
+}
+
+%node IfStmt Program = {
+    Program *cond;
+    Program *t_block;
+    Program *f_block;
+}
+
+%node WhileStmt Program = {
+    Program *cond;
+    Program *block;
+}
+
+%operation %virtual _string genProgramCode(Program *this , SymbolVector &vars);
+
+genProgramCode(SeqStmt){
+    for(auto &&a : seq){
+        std::string cd = a->genProgramCode(vars);
+        asm_code+= cd;
+    }
+
+    return asm_code;
+}
+
+genProgramCode(NumExpr){
+    place = newTemp();
+    asm_code = "mov "+ place +" , " + std::to_string(val) + "\n";
+    return asm_code;
+}
+
+genProgramCode(VarExpr){
+    place = "dword["+id+"]";
+    asm_code = "";
+    return asm_code;
+}
+
+genProgramCode(AndExpr){
+    std::string cd1 =expr1->genProgramCode(vars);
+    std::string cd2 = expr2->genProgramCode(vars);
+
+    place = newTemp();
+
+    asm_code += cd1 + "\n";
+    asm_code += cd1 + "\n";
+    asm_code += "mov eax , " + expr1->place + "\n";
+    asm_code += "mov ebx , " + expr2->place + "\n";
+    asm_code += "and eax, ebx\n";
+    asm_code += "mov " + place + ", eax\n";
+
+    return asm_code;
+}
+genProgramCode(AddExpr){
+    std::string cd1 =expr1->genProgramCode(vars);
+    std::string cd2 = expr2->genProgramCode(vars);
+
+    place = newTemp();
+
+    asm_code += cd1 + "\n";
+    asm_code += cd1 + "\n";
+    asm_code += "mov eax , " + expr1->place + "\n";
+    asm_code += "mov ebx , " + expr2->place + "\n";
+    asm_code += "add eax, ebx\n";
+    asm_code += "mov " + place + ", eax\n";
+
+    return asm_code;
+}
+
+genProgramCode(OrExpr){
+    std::string cd1 =expr1->genProgramCode(vars);
+    std::string cd2 = expr2->genProgramCode(vars);
+
+    place = newTemp();
+
+    asm_code += cd1 + "\n";
+    asm_code += cd1 + "\n";
+    asm_code += "mov eax , " + expr1->place + "\n";
+    asm_code += "mov ebx , " + expr2->place + "\n";
+    asm_code += "or eax, ebx\n";
+    asm_code += "mov " + place + ", eax\n";
+
+    return asm_code;
+}
+
+genProgramCode(XorExpr){
+    std::string cd1 =expr1->genProgramCode(vars);
+    std::string cd2 = expr2->genProgramCode(vars);
+
+    place = newTemp();
+
+    asm_code += cd1 + "\n";
+    asm_code += cd1 + "\n";
+    asm_code += "mov eax , " + expr1->place + "\n";
+    asm_code += "mov ebx , " + expr2->place + "\n";
+    asm_code += "xor eax, ebx\n";
+    asm_code += "mov " + place + ", eax\n";
+
+    return asm_code;
+}
+
+genProgramCode(LessThan){
+    std::string cd1 =expr1->genProgramCode(vars);
+    std::string cd2 = expr2->genProgramCode(vars);
+
+    place = newTemp();
+
+    asm_code+= cd1 + "\n";
+    asm_code+= cd2 + "\n";
+    asm_code+= "mov eax, " + expr1->place + "\n";
+    asm_code+= "cmp eax, " + expr2->place + "\n";
+    asm_code+= "mov eax,0\n";
+    asm_code+= "setl al\n";
+    asm_code+= "mov " + place + " , eax\n";
+    
+    return asm_code;
+}
+
+genProgramCode(AssignStmt){
+    return "";
+}
+
+genProgramCode(PrintStmt){
+    std::string cd1 = expr1->genProgramCode(vars);
+
+    asm_code+= cd1 + "\n";
+    asm_code+= "push " + expr1->place + "\n";
+    asm_code+= "push fmt\n";
+    asm_code+= "call printf\n";
+    asm_code+= "add esp , 8\n";
+
+    return asm_code;
+
+}
+
+genProgramCode(IfStmt){
+    std::string cd1 = cond->genProgramCode(vars);
+    std::string cd2 = t_block->genProgramCode(vars);
+    std::string cd3 = f_block->genProgramCode(vars);
+    
+
+    std::string else_label = newLabel();
+    std::string end_lable = newLabel();
+
+    asm_code+= cd1 + "\n";
+    asm_code+= "cmp " + cond->place + " , 0\n";
+    asm_code+= "je " + else_label +"\n";
+    asm_code+= cd2 + "\n";
+    asm_code+= "jmp " + end_lable + "\n";
+    asm_code+= else_label + ":\n";
+    asm_code+= cd3 + "\n";
+    asm_code+= end_lable + ":\n";
+
+    return asm_code;
+}
+
+genProgramCode(WhileStmt){
+    std::string cd1 = cond->genProgramCode(vars);
+    std::string cd2 = block->genProgramCode(vars);
+
+    std::string start_label = newLabel();
+    std::string end_lable = newLabel();
+
+    asm_code+= start_label + ":\n";
+    asm_code+= cd1 + "\n";
+    asm_code+= "cmp " + cond->place + " , 0\n";
+    asm_code+= "je " + end_lable + "\n";
+    asm_code+= cd2 + "\n";
+    asm_code+="jmp " + start_label + "\n";
+    asm_code+= end_lable + ":\n";
+
+    return asm_code;
+}
+
+genProgramCode(Prog){
+    asm_code+= "global main\n";
+    asm_code+= "extern printf\n";
+    asm_code+= "section .data\n";
+    asm_code+= "fmt db '%d' , 0 \n";
+
+    SymbolVector::iterator it = vars.begin();
+    while(it != vars.end()){
+        std::string temp = it->first + " dd " + std::to_string(it->second) + "\n";
+        asm_code += temp;
+        it++;
+    }
+    
+    asm_code+="section .text\n";
+
+    for(auto &&i : func_list){
+        asm_code+= i->genProgramCode(vars);
+    }
+
+    return asm_code;
+}
+
+genProgramCode(Function){
+    asm_code+= id + ":\n";
+    std::string cd1 = block->genProgramCode(vars);
+    asm_code+= reserveStackSpace() + "\n";
+
+    asm_code+=cd1 + "\n";
+    asm_code+= cleanTemporalStack() + "\n";
+    asm_code+= "ret \n";
+
+    return asm_code;
+}
+
+genProgramCode(Call){
+    return "";
+}
+
+genProgramCode(ParamByVal){
+    return "";
+}
+
+genProgramCode(ParamByRef){
+    return "";
+}
