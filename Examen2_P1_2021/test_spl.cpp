@@ -91,7 +91,13 @@ TEST_CASE("If statement")
 
         CHECK(output == "1234");
     }
-
+    prg = Prg({
+            Func(
+                "main",
+                {},
+                If(Var("x"), Print(Var("y")), Print(Var("z")))
+            )
+        });
     {
         SymbolVector symbs { {"x", 0}, {"y", 1234}, {"z", 4321}};
         std::string code = prg->genProgramCode(symbs);

@@ -157,7 +157,7 @@ genProgramCode(AddExpr){
     place = newTemp();
 
     asm_code += cd1 + "\n";
-    asm_code += cd1 + "\n";
+    asm_code += cd2 + "\n";
     asm_code += "mov eax , " + expr1->place + "\n";
     asm_code += "mov ebx , " + expr2->place + "\n";
     asm_code += "add eax, ebx\n";
@@ -216,7 +216,14 @@ genProgramCode(LessThan){
 }
 
 genProgramCode(AssignStmt){
-    return "";
+    place = "dword[" + id +"]";
+
+    std::string cd1 =  expr1->genProgramCode(vars);
+    asm_code+= cd1 + "\n";
+    asm_code+="mov eax, " + expr1->place + "\n";
+    asm_code+="mov " + place + ",eax \n";
+
+    return asm_code;
 }
 
 genProgramCode(PrintStmt){
